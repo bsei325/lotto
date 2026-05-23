@@ -162,6 +162,18 @@ setTimeout(()=>{document.getElementById('pwInput').style.borderColor='#f5c2d4';}
 <div class="ptitle">✨ 발견된 씨드 <span id="fLabel" style="color:var(--dim);font-weight:400;font-size:.82rem"></span></div>
 <div class="seeds" id="sList"><span style="color:var(--dim)">검색 결과가 여기에 표시됩니다</span></div>
 </div>
+<div class="panel" id="recSeedPanel" style="display:none">
+<div class="ptitle">👑 추천 씨드 선별</div>
+<p style="color:var(--dim);font-size:.82rem;margin-bottom:10px">발견된 씨드 중에서 골고루 분포된 추천 씨드를 뽑아줘요!</p>
+<div class="row" style="gap:5px;margin-bottom:12px">
+<button class="pick on" onclick="pickSeeds(this,30)">30개 추천</button>
+<button class="pick" onclick="pickSeeds(this,40)">40개 추천</button>
+<button class="pick" onclick="pickSeeds(this,50)">50개 추천</button>
+<button class="pick" onclick="pickSeeds(this,0)">전체</button>
+</div>
+<div id="recSeedList" class="seeds"></div>
+<div id="recSeedInfo" style="margin-top:8px;font-size:.82rem;color:var(--dim)"></div>
+</div>
 </div>
 
 <!-- TAB 2: 제외수 찾기 -->
@@ -198,19 +210,28 @@ setTimeout(()=>{document.getElementById('pwInput').style.borderColor='#f5c2d4';}
 </div>
 </div>
 
-<!-- 하단: 제외수/추천수 요약 -->
+<!-- 하단: 추천수 요약 -->
 <div class="panel">
 <div class="ptitle">📊 결과 요약</div>
-<div style="display:flex;gap:20px;flex-wrap:wrap">
-<div style="flex:1;min-width:200px">
-<div style="font-weight:700;color:var(--red);margin-bottom:6px">🚫 제외된 번호</div>
+<div style="margin-bottom:12px">
+<label>♡ 추천수 개수</label>
+<div class="row" style="gap:5px;margin-top:3px">
+<button class="pick" onclick="setRec(this,25)">25개</button>
+<button class="pick on" onclick="setRec(this,30)">30개</button>
+<button class="pick" onclick="setRec(this,35)">35개</button>
+<button class="pick" onclick="setRec(this,40)">40개</button>
+<button class="pick" onclick="setRec(this,45)">전체</button>
+</div>
+</div>
+<div style="margin-bottom:14px">
+<div style="font-weight:700;color:var(--red);margin-bottom:6px">🚫 제외된 번호 <span id="excNumCount" style="font-weight:400;color:var(--dim);font-size:.82rem"></span></div>
 <div id="excNums" style="font-size:.9rem">-</div>
 </div>
-<div style="flex:1;min-width:200px">
-<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ 남은 번호 (추천)</div>
+<div>
+<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ 추천 번호 <span id="safeNumCount" style="font-weight:400;color:var(--dim);font-size:.82rem"></span></div>
 <div id="safeNums" style="font-size:.9rem">-</div>
 </div>
-</div>
+<div id="recResult" style="margin-top:14px"></div>
 </div>
 </div>
 
@@ -336,8 +357,41 @@ document.getElementById('fLabel').textContent='('+foundSeeds.length+'개)';
 await new Promise(r=>setTimeout(r,0))}
 searching=false;
 document.getElementById('btnGo').classList.remove('hidden');document.getElementById('btnStop').classList.add('hidden');
-document.getElementById('pt').textContent='완료! '+foundSeeds.length+'개 발견';document.getElementById('xE').textContent='완료'}
+document.getElementById('pt').textContent='완료! '+foundSeeds.length+'개 발견';document.getElementById('xE').textContent='완료';
+if(foundSeeds.length>0){document.getElementById('recSeedPanel').style.display='block';pickSeeds(document.querySelector('#recSeedPanel .pick.on'),30)}}
 function stopS(){searching=false}
+
+function pickSeeds(el, count) {
+    if (el) { el.parentElement.querySelectorAll('.pick').forEach(b => b.classList.remove('on')); el.classList.add('on'); }
+    if (!foundSeeds.length) return;
+    
+    let picks;
+    if (count === 0 || count >= foundSeeds.length) {
+        picks = [...foundSeeds];
+    } else {
+        // 골고루 분포되게 선택 (균등 간격)
+        picks = [];
+        let step = foundSeeds.length / count;
+        for (let i = 0; i < count; i++) {
+            let idx = Math.floor(i * step);
+            picks.push(foundSeeds[idx]);
+        }
+    }
+    
+    let amt = searchParams.amt || 3;
+    let box = document.getElementById('recSeedList');
+    box.innerHTML = '';
+    picks.forEach(fs => {
+        let c = document.createElement('span');
+        c.className = 'chip';
+        c.textContent = fs.seed;
+        c.style.borderColor = '#e84393';
+        c.onclick = () => { document.getElementById('pSeed').value = fs.seed; document.getElementById('pAmt').value = amt; document.getElementById('pRfr').value = searchParams.fr; document.getElementById('pRtr').value = searchParams.tr; stab('predict'); doPredict(); };
+        box.appendChild(c);
+    });
+    
+    document.getElementById('recSeedInfo').textContent = '총 ' + foundSeeds.length + '개 중 ' + picks.length + '개 추천 (균등 분포 선택)';
+}
 
 // === 제외수 번호판 ===
 function getPredForSeed(seed, round, amt) {
@@ -405,25 +459,43 @@ function initGrid() {
     document.getElementById('selCount').textContent = '';
 }
 
+let recCount = 30;
+
+function setRec(el, n) {
+    recCount = n;
+    el.parentElement.querySelectorAll('.pick').forEach(b => b.classList.remove('on'));
+    el.classList.add('on');
+    updateGrid();
+}
+
 function updateGrid() {
     let round = parseInt(document.getElementById('excRound').value) || 1225;
     let amt = parseInt(document.getElementById('sAmt').value) || 3;
     let excluded = new Set();
     let checkedCount = checkedSeeds.size;
+    let freq = {};
+    for (let i = 1; i <= 45; i++) freq[i] = 0;
 
     foundSeeds.forEach(fs => {
         if (checkedSeeds.has(fs.seed)) {
             let pred = getPredForSeed(fs.seed, round, amt);
-            pred.forEach(n => excluded.add(n));
+            pred.forEach(n => { excluded.add(n); freq[n]++; });
         }
     });
+
+    // 빈도 기준으로 정렬: 많이 나올수록 제외 우선
+    let ranked = [];
+    for (let i = 1; i <= 45; i++) ranked.push({num: i, count: freq[i]});
+    ranked.sort((a, b) => a.count - b.count); // 적게 나온 순 = 추천 우선
+
+    let recNums = new Set(ranked.slice(0, recCount).map(x => x.num));
 
     // 번호판 업데이트
     let remaining = [];
     let excludedList = [];
     for (let i = 1; i <= 45; i++) {
         let cell = document.getElementById('c' + i);
-        if (excluded.has(i)) {
+        if (checkedCount > 0 && !recNums.has(i)) {
             cell.className = 'cell off';
             excludedList.push(i);
         } else {
@@ -435,24 +507,37 @@ function updateGrid() {
     document.getElementById('remainCount').textContent = remaining.length;
     document.getElementById('selCount').textContent = '(' + checkedCount + '개 선택)';
 
-    // 행별 카운트 업데이트
+    // 행별 카운트
     let groups = [{id:'1',r:[1,9]},{id:'10',r:[10,19]},{id:'20',r:[20,29]},{id:'30',r:[30,39]},{id:'40',r:[40,45]}];
     groups.forEach(g => {
         let cnt = 0;
-        for (let i = g.r[0]; i <= g.r[1]; i++) { if (!excluded.has(i)) cnt++; }
+        for (let i = g.r[0]; i <= g.r[1]; i++) { if (recNums.has(i) || checkedCount === 0) cnt++; }
         let el = document.getElementById('rc' + g.id);
         if (el) { el.textContent = cnt; el.style.color = cnt === 0 ? 'var(--dim)' : 'var(--accent)'; }
     });
 
-    // 제외수 표시
-    if (excludedList.length > 0) {
+    // 결과 표시
+    if (checkedCount > 0 && excludedList.length > 0) {
         document.getElementById('excNums').innerHTML = excludedList.map(n =>
             '<span class="ball hot">' + String(n).padStart(2, '0') + '</span>').join('');
+        document.getElementById('excNumCount').textContent = '(' + excludedList.length + '개)';
         document.getElementById('safeNums').innerHTML = remaining.map(n =>
             '<span class="ball cold">' + String(n).padStart(2, '0') + '</span>').join('');
+        document.getElementById('safeNumCount').textContent = '(' + remaining.length + '개)';
+
+        // 추천수 상세
+        let recH = '<div style="margin-top:6px;padding:12px;background:#f0fff4;border-radius:10px;border:1px solid #c6f6d5">';
+        recH += '<b style="color:var(--green)">💚 최종 추천 ' + remaining.length + '개 번호</b><br>';
+        recH += '<span style="font-family:JetBrains Mono,monospace;font-size:1.1rem;font-weight:700;color:#2d6a4f">';
+        recH += remaining.map(n => String(n).padStart(2, '0')).join(', ');
+        recH += '</span></div>';
+        document.getElementById('recResult').innerHTML = recH;
     } else {
         document.getElementById('excNums').textContent = '-';
+        document.getElementById('excNumCount').textContent = '';
         document.getElementById('safeNums').innerHTML = '<span style="color:var(--dim)">씨드를 선택하면 결과가 표시돼요</span>';
+        document.getElementById('safeNumCount').textContent = '';
+        document.getElementById('recResult').innerHTML = '';
     }
 }
 
