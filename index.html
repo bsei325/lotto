@@ -147,6 +147,21 @@ tr:hover td { background: rgba(232,67,147,0.05); }
 .tab-content.active { display: block; }
 
 .hidden { display: none; }
+
+.pick-btn {
+  font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.85rem;
+  background: #fff0f5; border: 2px solid var(--border); border-radius: 20px;
+  padding: 6px 16px; cursor: pointer; transition: all 0.2s; color: var(--dim);
+}
+.pick-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pick-btn.active { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; border-color: #e84393; }
+
+.range-btn {
+  font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.8rem;
+  background: #fff0f5; border: 2px solid var(--border); border-radius: 10px;
+  padding: 6px 14px; cursor: pointer; transition: all 0.2s; color: var(--text);
+}
+.range-btn:hover { border-color: var(--accent); background: rgba(232,67,147,0.1); transform: translateY(-1px); }
 </style>
 </head>
 <body>
@@ -164,17 +179,61 @@ tr:hover td { background: rgba(232,67,147,0.05); }
   <div id="tab-search" class="tab-content active">
     <div class="panel">
       <div class="panel-title"><span class="icon">💖</span> 빨간색 0개 씨드 검색</div>
-      <div class="row">
-        <div><label>시작 씨드</label><input type="number" id="searchFrom" value="1"></div>
-        <div><label>끝 씨드</label><input type="number" id="searchTo" value="100000"></div>
-        <div><label>비교 회차</label><input type="number" id="roundFrom" value="1204"> ~ <input type="number" id="roundTo" value="1224"></div>
-        <div><label>예상수 개수</label><input type="number" id="searchAmount" value="3" min="1" max="45" style="width:80px"></div>
-        <div><label>최대 빨간색 수</label><input type="number" id="maxRed" value="0" min="0" max="42" style="width:80px"></div>
-        <div style="padding-top:20px">
-          <button class="btn-primary" id="btnSearch" onclick="startSearch()">🔍 검색 시작</button>
-          <button class="btn-danger hidden" id="btnStop" onclick="stopSearchFn()">⏹ 중단</button>
+
+      <!-- 예상수 개수 선택 -->
+      <div style="margin-bottom:14px">
+        <label>♡ 예상수 개수 선택</label>
+        <div class="row" style="gap:6px; margin-top:4px">
+          <button class="pick-btn" onclick="setAmount(2)">2개</button>
+          <button class="pick-btn active" onclick="setAmount(3)">3개</button>
+          <button class="pick-btn" onclick="setAmount(5)">5개</button>
+          <button class="pick-btn" onclick="setAmount(10)">10개</button>
+          <button class="pick-btn" onclick="setAmount(15)">15개</button>
+          <button class="pick-btn" onclick="setAmount(20)">20개</button>
+          <input type="number" id="searchAmount" value="3" min="1" max="45" style="width:65px; font-size:0.85rem" onchange="syncAmountBtn()">
         </div>
       </div>
+
+      <!-- 최대 빨간색 수 -->
+      <div style="margin-bottom:14px">
+        <label>♡ 최대 빨간색 수</label>
+        <div class="row" style="gap:6px; margin-top:4px">
+          <button class="pick-btn active" onclick="setMaxRed(0)">0개</button>
+          <button class="pick-btn" onclick="setMaxRed(1)">1개</button>
+          <button class="pick-btn" onclick="setMaxRed(2)">2개</button>
+          <button class="pick-btn" onclick="setMaxRed(3)">3개</button>
+          <input type="number" id="maxRed" value="0" min="0" max="99" style="width:65px; font-size:0.85rem" onchange="syncMaxRedBtn()">
+        </div>
+      </div>
+
+      <!-- 비교 회차 -->
+      <div class="row" style="margin-bottom:14px">
+        <div><label>비교 회차</label><input type="number" id="roundFrom" value="1204"> ~ <input type="number" id="roundTo" value="1224"></div>
+      </div>
+
+      <!-- 검색 범위 -->
+      <div style="margin-bottom:14px">
+        <label>♡ 검색 범위</label>
+        <div class="row" style="gap:8px; margin-top:4px">
+          <div><input type="number" id="searchFrom" value="1" style="width:150px"></div>
+          <span style="color:var(--dim)">~</span>
+          <div><input type="number" id="searchTo" value="100000" style="width:150px"></div>
+        </div>
+        <div class="row" style="gap:6px; margin-top:8px">
+          <button class="range-btn" onclick="setRange(1,10000)">1~1만</button>
+          <button class="range-btn" onclick="setRange(1,100000)">1~10만</button>
+          <button class="range-btn" onclick="setRange(1,1000000)">1~100만</button>
+          <button class="range-btn" onclick="nextRange(10000)">다음 1만 ▶</button>
+          <button class="range-btn" onclick="nextRange(100000)">다음 10만 ▶</button>
+        </div>
+      </div>
+
+      <!-- 실행 버튼 -->
+      <div style="margin-bottom:8px">
+        <button class="btn-primary" id="btnSearch" onclick="startSearch()" style="padding:12px 32px; font-size:1rem">🔍 검색 시작</button>
+        <button class="btn-danger hidden" id="btnStop" onclick="stopSearchFn()" style="padding:12px 32px; font-size:1rem">⏹ 중단</button>
+      </div>
+
       <div class="progress-wrap">
         <div class="progress-bar" id="progressBar"></div>
         <div class="progress-text" id="progressText">대기중</div>
@@ -663,6 +722,58 @@ function switchTab(name) {
 // 초기화
 loadData();
 renderDataTable();
+
+// =============================================
+// 예상수 & 범위 선택 UI
+// =============================================
+function setAmount(n) {
+    document.getElementById('searchAmount').value = n;
+    document.querySelectorAll('.pick-btn').forEach(b => {
+        if (b.parentElement.previousElementSibling && b.parentElement.previousElementSibling.textContent.includes('예상수')) {
+            b.classList.remove('active');
+            if (b.textContent === n + '개') b.classList.add('active');
+        }
+    });
+}
+function syncAmountBtn() {
+    let v = document.getElementById('searchAmount').value;
+    document.querySelectorAll('.pick-btn').forEach(b => {
+        if (b.parentElement.previousElementSibling && b.parentElement.previousElementSibling.textContent.includes('예상수')) {
+            b.classList.remove('active');
+            if (b.textContent === v + '개') b.classList.add('active');
+        }
+    });
+}
+
+function setMaxRed(n) {
+    document.getElementById('maxRed').value = n;
+    document.querySelectorAll('.pick-btn').forEach(b => {
+        if (b.parentElement.previousElementSibling && b.parentElement.previousElementSibling.textContent.includes('빨간색')) {
+            b.classList.remove('active');
+            if (b.textContent === n + '개') b.classList.add('active');
+        }
+    });
+}
+function syncMaxRedBtn() {
+    let v = document.getElementById('maxRed').value;
+    document.querySelectorAll('.pick-btn').forEach(b => {
+        if (b.parentElement.previousElementSibling && b.parentElement.previousElementSibling.textContent.includes('빨간색')) {
+            b.classList.remove('active');
+            if (b.textContent === v + '개') b.classList.add('active');
+        }
+    });
+}
+
+function setRange(from, to) {
+    document.getElementById('searchFrom').value = from;
+    document.getElementById('searchTo').value = to;
+}
+
+function nextRange(size) {
+    let prev = parseInt(document.getElementById('searchTo').value) || 0;
+    document.getElementById('searchFrom').value = prev + 1;
+    document.getElementById('searchTo').value = prev + size;
+}
 </script>
 </body>
 </html>
