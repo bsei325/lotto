@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>👑 로또 씨드 검색기 ✨</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg: #fff5f9;
+  --card: #ffffff;
+  --border: #f5c2d4;
+  --accent: #e84393;
+  --accent2: #fd79a8;
+  --green: #00b894;
+  --red: #d63031;
+  --text: #4a2040;
+  --dim: #b07095;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(253,121,168,0.12) 0%, transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(232,67,147,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255,182,206,0.1) 0%, transparent 70%);
+  color: var(--text);
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '✦ ✧ ♡ ✦ ✧ ♡ ✦ ✧ ♡ ✦ ✧ ♡ ✦ ✧';
+  position: fixed; top: 8px; left: 0; right: 0;
+  text-align: center; font-size: 0.7rem; color: rgba(232,67,147,0.2);
+  letter-spacing: 12px; pointer-events: none; z-index: 0;
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+h1 {
+  font-size: 2rem; font-weight: 900;
+  background: linear-gradient(135deg, #e84393, #fd79a8, #e17055, #e84393);
+  background-size: 200% 200%;
+  animation: shimmer 3s ease infinite;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+  text-shadow: none;
+}
+@keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+.subtitle { color: var(--dim); font-size: 0.85rem; margin-bottom: 24px; }
+
+.panel {
+  background: var(--card); border: 2px solid var(--border);
+  border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(232,67,147,0.08), 0 1px 4px rgba(232,67,147,0.05);
+}
+.panel-title {
+  font-weight: 700; font-size: 1rem; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--accent);
+}
+.panel-title .icon { font-size: 1.2rem; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+label { font-size: 0.85rem; color: var(--dim); margin-bottom: 4px; display: block; }
+
+input[type="number"] {
+  background: #fff0f5; border: 2px solid var(--border); color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 1rem;
+  padding: 8px 12px; border-radius: 12px; width: 130px; text-align: center;
+}
+input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,67,147,0.15); }
+
+button {
+  font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.95rem;
+  border: none; border-radius: 12px; padding: 10px 24px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; }
+.btn-primary:hover { background: linear-gradient(135deg, #d63384, #e84393); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(232,67,147,0.3); }
+.btn-danger { background: linear-gradient(135deg, #d63031, #e17055); color: #fff; }
+.btn-danger:hover { background: linear-gradient(135deg, #c0392b, #d63031); }
+.btn-orange { background: linear-gradient(135deg, #e84393, #a855f7); color: #fff; }
+.btn-orange:hover { background: linear-gradient(135deg, #d63384, #9333ea); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(168,85,247,0.3); }
+.btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+.progress-wrap {
+  background: #fce4ec; border-radius: 12px; height: 32px; overflow: hidden;
+  position: relative; margin: 12px 0; border: 1px solid var(--border);
+}
+.progress-bar {
+  height: 100%; background: linear-gradient(90deg, #e84393, #fd79a8, #a855f7);
+  border-radius: 12px; transition: width 0.3s; width: 0%;
+}
+.progress-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 700;
+  color: var(--text);
+}
+
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px; margin: 12px 0;
+}
+.stat-card {
+  background: linear-gradient(135deg, #fff0f5, #fce4ec); border-radius: 12px; padding: 12px; text-align: center;
+  border: 1px solid var(--border);
+}
+.stat-val { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.75rem; color: var(--dim); margin-top: 2px; }
+
+.seed-list {
+  display: flex; flex-wrap: wrap; gap: 6px; max-height: 300px;
+  overflow-y: auto; padding: 4px;
+}
+.seed-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+  background: #fff0f5; border: 2px solid var(--border); border-radius: 20px;
+  padding: 4px 14px; cursor: pointer; transition: all 0.15s;
+}
+.seed-chip:hover { border-color: var(--accent); background: rgba(232,67,147,0.1); transform: scale(1.05); }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; padding: 8px 4px; text-align: center; font-weight: 700; }
+td { padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border); }
+tr:hover td { background: rgba(232,67,147,0.05); }
+.match { color: var(--red) !important; font-weight: 700; }
+.bonus-match { color: var(--green) !important; font-weight: 700; }
+.future-row { background: rgba(168,85,247,0.06); }
+.future-row td { color: #a855f7; font-weight: 700; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tab {
+  padding: 8px 20px; border-radius: 16px 16px 0 0; cursor: pointer;
+  background: #fff0f5; color: var(--dim); font-weight: 700; font-size: 0.9rem;
+  border: 2px solid var(--border); border-bottom: none; transition: all 0.2s;
+}
+.tab.active { background: #fff; color: var(--accent); border-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>👑 로또 씨드 검색기 ✨</h1>
+  <p class="subtitle">♡ seedrandom(ARC4) 알고리즘 기반 · 브라우저에서 초고속 실행 · 인터넷 불필요 ♡</p>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('search')">🔍 씨드 검색</div>
+    <div class="tab" onclick="switchTab('predict')">💎 예상수 확인</div>
+    <div class="tab" onclick="switchTab('data')">🌸 당첨번호 관리</div>
+  </div>
+
+  <!-- TAB 1: 씨드 검색 -->
+  <div id="tab-search" class="tab-content active">
+    <div class="panel">
+      <div class="panel-title"><span class="icon">💖</span> 빨간색 0개 씨드 검색</div>
+      <div class="row">
+        <div><label>시작 씨드</label><input type="number" id="searchFrom" value="1"></div>
+        <div><label>끝 씨드</label><input type="number" id="searchTo" value="100000"></div>
+        <div><label>비교 회차</label><input type="number" id="roundFrom" value="1204"> ~ <input type="number" id="roundTo" value="1224"></div>
+        <div><label>예상수 개수</label><input type="number" id="searchAmount" value="3" min="1" max="45" style="width:80px"></div>
+        <div><label>최대 빨간색 수</label><input type="number" id="maxRed" value="0" min="0" max="42" style="width:80px"></div>
+        <div style="padding-top:20px">
+          <button class="btn-primary" id="btnSearch" onclick="startSearch()">🔍 검색 시작</button>
+          <button class="btn-danger hidden" id="btnStop" onclick="stopSearchFn()">⏹ 중단</button>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+        <div class="progress-text" id="progressText">대기중</div>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-val" id="statTested">0</div><div class="stat-label">테스트</div></div>
+        <div class="stat-card"><div class="stat-val" id="statFound" style="color:var(--green)">0</div><div class="stat-label">발견</div></div>
+        <div class="stat-card"><div class="stat-val" id="statSpeed">0</div><div class="stat-label">씨드/초</div></div>
+        <div class="stat-card"><div class="stat-val" id="statETA">-</div><div class="stat-label">남은시간</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span class="icon">✨</span> 발견된 씨드 <span id="foundCountLabel" style="color:var(--dim);font-weight:400;font-size:0.85rem"></span></div>
+      <div class="seed-list" id="seedList"><span style="color:var(--dim)">검색 결과가 여기에 표시됩니다</span></div>
+    </div>
+  </div>
+
+  <!-- TAB 2: 예상수 확인 -->
+  <div id="tab-predict" class="tab-content">
+    <div class="panel">
+      <div class="panel-title"><span class="icon">💎</span> 씨드 예상수 확인</div>
+      <div class="row">
+        <div><label>씨드값</label><input type="number" id="seedInput" value="3206"></div>
+        <div><label>예상수 개수</label><input type="number" id="amountInput" value="3" min="1" max="45"></div>
+        <div><label>미래 회차 수</label><input type="number" id="futureCount" value="10" min="1" max="50"></div>
+        <div style="padding-top:20px">
+          <button class="btn-orange" onclick="runPredict()">▶ 실행</button>
+        </div>
+      </div>
+      <div id="predictResult" style="margin-top:12px;font-weight:700;font-size:1.1rem"></div>
+    </div>
+    <div class="panel" id="predictPanel" style="overflow-x:auto">
+      <table id="predictTable"><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- TAB 3: 당첨번호 관리 -->
+  <div id="tab-data" class="tab-content">
+    <div class="panel">
+      <div class="panel-title"><span class="icon">🌸</span> 당첨번호 데이터</div>
+      <p style="color:var(--dim);font-size:0.85rem;margin-bottom:12px">
+        새 회차가 나오면 [자동 업데이트] 버튼만 누르세요! 최신 당첨번호를 자동으로 찾아서 저장해요 💾
+      </p>
+      <div class="row" style="margin-bottom:12px">
+        <div style="padding-top:0"><button class="btn-primary" onclick="autoUpdate()">🌐 자동 업데이트</button></div>
+        <div style="padding-top:0"><button class="btn-orange btn-sm" onclick="exportData()">📥 데이터 내보내기</button></div>
+        <div style="padding-top:0"><button class="btn-orange btn-sm" onclick="importData()">📤 데이터 불러오기</button></div>
+      </div>
+      <div id="fetchStatus" style="font-size:0.85rem;margin-bottom:8px"></div>
+      <p style="color:var(--dim);font-size:0.8rem;margin-bottom:8px">💾 데이터는 브라우저에 자동 저장돼요! 다른 PC로 옮기려면 내보내기/불러오기를 사용하세요.</p>
+      <div style="overflow-x:auto">
+        <table id="dataTable"><tbody></tbody></table>
+      </div>
+      <div style="margin-top:12px">
+        <div class="row">
+          <input type="number" id="addRound" placeholder="회차" style="width:70px">
+          <input type="number" id="addN1" placeholder="번호1" style="width:70px">
+          <input type="number" id="addN2" placeholder="번호2" style="width:70px">
+          <input type="number" id="addN3" placeholder="번호3" style="width:70px">
+          <input type="number" id="addN4" placeholder="번호4" style="width:70px">
+          <input type="number" id="addN5" placeholder="번호5" style="width:70px">
+          <input type="number" id="addN6" placeholder="번호6" style="width:70px">
+          <input type="number" id="addBonus" placeholder="보너스" style="width:70px">
+          <button class="btn-primary btn-sm" onclick="addRound()">추가</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+// seedrandom.js (David Bau) - 내장
+// =============================================
+(function(global, pool, math) {
+    var width = 256, chunks = 6, digits = 52, startdenom = math.pow(width, chunks),
+        significance = math.pow(2, digits), overflow = significance * 2, mask = width - 1;
+    function seedrandom(seed, options, callback) {
+        var key = [];
+        seed = mixkey(flatten((options && options.entropy) ? [seed, tostring(pool)] :
+            (seed == null) ? autoseed() : seed, 3), key);
+        var arc4 = new ARC4(key);
+        var prng = function() {
+            var n = arc4.g(chunks), d = startdenom, x = 0;
+            while (n < significance) { n = (n + x) * width; d *= width; x = arc4.g(1); }
+            while (n >= overflow) { n /= 2; d /= 2; x >>>= 1; }
+            return (n + x) / d;
+        };
+        mixkey(tostring(arc4.S), pool);
+        return (options && options.pass || callback ||
+            function(prng, seed, is_math_call) {
+                if (is_math_call) { math.random = prng; return seed; }
+                else return prng;
+            })(prng, seed, 'global' in (options || {}) ? options.global : (this == math), options && options.state);
+    }
+    function ARC4(key) {
+        var t, keylen = key.length, me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
+        if (!keylen) { key = [keylen++]; }
+        while (i < width) { s[i] = i++; }
+        for (i = 0; i < width; i++) { s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))]; s[j] = t; }
+        (me.g = function(count) {
+            var t, r = 0, i = me.i, j = me.j, s = me.S;
+            while (count--) { t = s[i = mask & (i + 1)]; r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))]; }
+            me.i = i; me.j = j; return r;
+        })(width);
+    }
+    function flatten(obj, depth) {
+        var result = [], typ = (typeof obj), prop;
+        if (depth && typ == 'object') { for (prop in obj) { try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {} } }
+        return (result.length ? result : typ == 'string' ? obj : obj + '\0');
+    }
+    function mixkey(seed, key) {
+        var stringseed = seed + '', smear, j = 0;
+        while (j < stringseed.length) { key[mask & j] = mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++)); }
+        return key;
+    }
+    function autoseed() { return [+new Date, global]; }
+    function tostring(a) { return String.fromCharCode.apply(0, a); }
+    math['seed' + 'random'] = seedrandom;
+})(typeof self !== 'undefined' ? self : this, [], Math);
+
+// =============================================
+// 당첨번호 데이터
+// =============================================
+let winData = [
+    {round:1204,date:'2025-12-27',nums:[8,16,28,30,31,44],bonus:27},
+    {round:1205,date:'2026-01-03',nums:[1,4,16,23,31,41],bonus:2},
+    {round:1206,date:'2026-01-10',nums:[1,3,17,26,27,42],bonus:23},
+    {round:1207,date:'2026-01-17',nums:[10,22,24,27,38,45],bonus:11},
+    {round:1208,date:'2026-01-24',nums:[6,27,30,36,38,42],bonus:25},
+    {round:1209,date:'2026-01-31',nums:[2,17,20,35,37,39],bonus:24},
+    {round:1210,date:'2026-02-07',nums:[1,7,9,17,27,38],bonus:31},
+    {round:1211,date:'2026-02-14',nums:[23,26,27,35,38,40],bonus:10},
+    {round:1212,date:'2026-02-21',nums:[5,8,25,31,41,44],bonus:45},
+    {round:1213,date:'2026-02-28',nums:[5,11,25,27,36,38],bonus:2},
+    {round:1214,date:'2026-03-07',nums:[10,15,19,27,30,33],bonus:14},
+    {round:1215,date:'2026-03-14',nums:[13,15,19,21,44,45],bonus:39},
+    {round:1216,date:'2026-03-21',nums:[3,10,14,15,23,24],bonus:25},
+    {round:1217,date:'2026-03-28',nums:[8,10,15,20,29,31],bonus:41},
+    {round:1218,date:'2026-04-04',nums:[3,28,31,32,42,45],bonus:25},
+    {round:1219,date:'2026-04-11',nums:[1,2,15,28,39,45],bonus:31},
+    {round:1220,date:'2026-04-18',nums:[2,22,25,28,34,43],bonus:16},
+    {round:1221,date:'2026-04-25',nums:[6,13,18,28,30,36],bonus:9},
+    {round:1222,date:'2026-05-02',nums:[4,11,17,22,32,41],bonus:34},
+    {round:1223,date:'2026-05-09',nums:[16,18,20,32,33,39],bonus:26},
+    {round:1224,date:'2026-05-16',nums:[9,18,21,27,44,45],bonus:28},
+];
+
+// =============================================
+// 셔플 (사이트와 동일)
+// =============================================
+function shuffle(array) {
+    var counter = array.length, temp, index;
+    while (counter > 0) {
+        index = Math.floor(Math.random() * counter);
+        counter--;
+        temp = array[counter]; array[counter] = array[index]; array[index] = temp;
+    }
+    return array;
+}
+
+// =============================================
+// 씨드 테스트
+// =============================================
+function testSeed(seed, fromRound, toRound, checkData, maxRed, amount) {
+    Math.seedrandom(seed);
+    var a = []; for (var i = 1; i <= 45; i++) a.push(i);
+    for (var i = 0; i < fromRound - 1; i++) shuffle(a);
+    var totalMatch = 0;
+    for (var c = 0; c < checkData.length; c++) {
+        shuffle(a);
+        var nums = checkData[c];
+        for (var k = 0; k < amount; k++) {
+            if (nums.has(a[k])) totalMatch++;
+        }
+        if (totalMatch > maxRed) return -1;
+    }
+    return totalMatch;
+}
+
+// =============================================
+// 검색
+// =============================================
+let searching = false;
+
+function getCheckData(fromR, toR) {
+    let data = [];
+    for (let r = fromR; r <= toR; r++) {
+        let d = winData.find(w => w.round === r);
+        if (d) {
+            let s = new Set([...d.nums, d.bonus]);
+            data.push(s);
+        }
+    }
+    return data;
+}
+
+async function startSearch() {
+    if (searching) return;
+    let fromSeed = parseInt(document.getElementById('searchFrom').value);
+    let toSeed = parseInt(document.getElementById('searchTo').value);
+    let fromR = parseInt(document.getElementById('roundFrom').value);
+    let toR = parseInt(document.getElementById('roundTo').value);
+    let maxRed = parseInt(document.getElementById('maxRed').value) || 0;
+    let amount = parseInt(document.getElementById('searchAmount').value) || 3;
+
+    let checkData = getCheckData(fromR, toR);
+    if (checkData.length === 0) { alert('해당 회차의 당첨번호 데이터가 없습니다!\n📊 당첨번호 관리 탭에서 데이터를 추가하세요.'); return; }
+
+    searching = true;
+    document.getElementById('btnSearch').classList.add('hidden');
+    document.getElementById('btnStop').classList.remove('hidden');
+    document.getElementById('seedList').innerHTML = '';
+
+    let found = [];
+    let total = toSeed - fromSeed + 1;
+    let startTime = performance.now();
+    let batchSize = 500;
+
+    for (let batch = fromSeed; batch <= toSeed; batch += batchSize) {
+        if (!searching) break;
+        let end = Math.min(batch + batchSize - 1, toSeed);
+
+        for (let seed = batch; seed <= end; seed++) {
+            let result = testSeed(seed, fromR, toR, checkData, maxRed, amount);
+            if (result >= 0) {
+                found.push({seed, reds: result});
+                let chip = document.createElement('span');
+                chip.className = 'seed-chip';
+                chip.textContent = seed + (result > 0 ? ' (' + result + '개)' : '');
+                if (result === 0) chip.style.borderColor = '#e84393';
+                chip.onclick = () => { document.getElementById('seedInput').value = seed; document.getElementById('amountInput').value = amount; switchTab('predict'); runPredict(); };
+                document.getElementById('seedList').appendChild(chip);
+            }
+        }
+
+        let tested = end - fromSeed + 1;
+        let pct = (tested / total * 100);
+        let elapsed = (performance.now() - startTime) / 1000;
+        let speed = tested / elapsed;
+        let eta = (total - tested) / speed;
+
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressText').textContent = tested + '/' + total + ' (' + pct.toFixed(1) + '%)';
+        document.getElementById('statTested').textContent = tested.toLocaleString();
+        document.getElementById('statFound').textContent = found.length;
+        document.getElementById('statSpeed').textContent = Math.round(speed).toLocaleString();
+        document.getElementById('statETA').textContent = eta < 60 ? Math.round(eta) + '초' : (eta / 60).toFixed(1) + '분';
+        document.getElementById('foundCountLabel').textContent = '(' + found.length + '개)';
+
+        await new Promise(r => setTimeout(r, 0));
+    }
+
+    searching = false;
+    document.getElementById('btnSearch').classList.remove('hidden');
+    document.getElementById('btnStop').classList.add('hidden');
+    document.getElementById('progressText').textContent = '완료! ' + found.length + '개 발견';
+    document.getElementById('statETA').textContent = '완료';
+}
+
+function stopSearchFn() { searching = false; }
+
+// =============================================
+// 예상수 확인
+// =============================================
+function runPredict() {
+    let seed = parseInt(document.getElementById('seedInput').value);
+    let amount = parseInt(document.getElementById('amountInput').value);
+    let futureN = parseInt(document.getElementById('futureCount').value);
+    let fromR = parseInt(document.getElementById('roundFrom').value);
+    let toR = parseInt(document.getElementById('roundTo').value);
+
+    Math.seedrandom(seed);
+    var goodNum = []; for (var i = 1; i <= 45; i++) goodNum.push(i);
+
+    let totalRounds = Math.max(toR, winData[winData.length-1].round);
+    var myShuffle = [];
+    for (var i = 0; i < totalRounds + 1 + futureN; i++) {
+        var t = shuffle(goodNum).slice();
+        myShuffle.push(t);
+    }
+
+    let html = '<tr><th>회차</th><th>추첨일</th><th>당1</th><th>당2</th><th>당3</th><th>당4</th><th>당5</th><th>당6</th><th>보너스</th><th colspan="' + amount + '">예상수</th><th>결과</th></tr>';
+
+    let totalRed = 0;
+
+    // 과거 회차
+    for (let r = fromR; r <= toR; r++) {
+        let d = winData.find(w => w.round === r);
+        if (!d) continue;
+        let pred = myShuffle[r - 1].slice(0, amount);
+        let allNums = new Set([...d.nums, d.bonus]);
+        let mainSet = new Set(d.nums);
+        let mc = 0, bc = 0;
+
+        html += '<tr><td>' + r + '</td><td>' + d.date + '</td>';
+        for (let n of d.nums) {
+            let isMatch = pred.includes(n);
+            html += '<td' + (isMatch ? ' class="match"' : '') + '>' + n + '</td>';
+        }
+        let bMatch = pred.includes(d.bonus);
+        html += '<td' + (bMatch ? ' class="bonus-match"' : '') + '>' + d.bonus + '</td>';
+
+        for (let p of pred) {
+            let cls = '';
+            if (mainSet.has(p)) { cls = 'match'; mc++; }
+            else if (p === d.bonus) { cls = 'bonus-match'; bc++; }
+            html += '<td class="' + cls + '">' + String(p).padStart(2, '0') + '</td>';
+        }
+        totalRed += mc + bc;
+        html += '<td>(' + mc + '+' + bc + ')</td></tr>';
+    }
+
+    // 미래 회차
+    for (let i = 0; i < futureN; i++) {
+        let futureRound = toR + 1 + i;
+        let pred = myShuffle[futureRound - 1].slice(0, amount);
+        html += '<tr class="future-row"><td>' + futureRound + '</td><td>미래</td>';
+        html += '<td colspan="7" style="color:var(--dim)">-</td>';
+        for (let p of pred) {
+            html += '<td>' + String(p).padStart(2, '0') + '</td>';
+        }
+        html += '<td>예상</td></tr>';
+    }
+
+    document.getElementById('predictTable').innerHTML = html;
+
+    let resultDiv = document.getElementById('predictResult');
+    if (totalRed === 0) {
+        resultDiv.innerHTML = '✅ 씨드 ' + seed + ' → <span style="color:var(--green)">빨간색 0개! 완벽!</span>';
+    } else {
+        resultDiv.innerHTML = '⚠️ 씨드 ' + seed + ' → <span style="color:var(--red)">일치 ' + totalRed + '개</span>';
+    }
+}
+
+// =============================================
+// 당첨번호 관리
+// =============================================
+function renderDataTable() {
+    let html = '<tr><th>회차</th><th>추첨일</th><th>번호1</th><th>번호2</th><th>번호3</th><th>번호4</th><th>번호5</th><th>번호6</th><th>보너스</th><th></th></tr>';
+    for (let d of winData) {
+        html += '<tr><td>' + d.round + '</td><td>' + d.date + '</td>';
+        for (let n of d.nums) html += '<td>' + n + '</td>';
+        html += '<td>' + d.bonus + '</td>';
+        html += '<td><button class="btn-danger btn-sm" onclick="removeRound(' + d.round + ')">삭제</button></td></tr>';
+    }
+    document.getElementById('dataTable').innerHTML = html;
+}
+
+function addRound() {
+    let round = parseInt(document.getElementById('addRound').value);
+    let nums = [
+        parseInt(document.getElementById('addN1').value),
+        parseInt(document.getElementById('addN2').value),
+        parseInt(document.getElementById('addN3').value),
+        parseInt(document.getElementById('addN4').value),
+        parseInt(document.getElementById('addN5').value),
+        parseInt(document.getElementById('addN6').value),
+    ];
+    let bonus = parseInt(document.getElementById('addBonus').value);
+    if (!round || nums.some(isNaN) || isNaN(bonus)) { alert('모든 값을 입력하세요!'); return; }
+    winData.push({round, date:'', nums, bonus});
+    winData.sort((a,b) => a.round - b.round);
+    saveData();
+    renderDataTable();
+}
+
+function removeRound(r) { winData = winData.filter(d => d.round !== r); saveData(); renderDataTable(); }
+
+async function autoUpdate() {
+    let status = document.getElementById('fetchStatus');
+    
+    // 현재 저장된 마지막 회차 찾기
+    let lastRound = 0;
+    if (winData.length > 0) {
+        lastRound = Math.max(...winData.map(d => d.round));
+    }
+    let startRound = lastRound + 1;
+    if (startRound < 1) startRound = 1;
+    
+    status.innerHTML = '<span style="color:var(--accent)">최신 회차 탐색중... (' + startRound + '회차부터)</span>';
+    
+    let success = 0, fail = 0;
+    let currentRound = startRound;
+    
+    while (true) {
+        status.innerHTML = '<span style="color:var(--accent)">' + currentRound + '회차 확인중... (추가: ' + success + '개)</span>';
+        try {
+            let resp = await fetch('https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=' + currentRound);
+            let data = await resp.json();
+            if (data.returnValue === 'success') {
+                let existing = winData.findIndex(d => d.round === currentRound);
+                let entry = {
+                    round: currentRound, date: data.drwNoDate,
+                    nums: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6],
+                    bonus: data.bnusNo
+                };
+                if (existing >= 0) winData[existing] = entry;
+                else winData.push(entry);
+                success++;
+                currentRound++;
+            } else {
+                break; // 더 이상 데이터 없음 = 최신까지 다 가져옴
+            }
+        } catch(e) {
+            break;
+        }
+    }
+    
+    if (success > 0) {
+        winData.sort((a,b) => a.round - b.round);
+        saveData();
+        renderDataTable();
+        
+        // 검색 탭의 회차 범위도 자동 업데이트
+        let maxRound = Math.max(...winData.map(d => d.round));
+        document.getElementById('roundTo').value = maxRound;
+        
+        status.innerHTML = '<span style="color:var(--green)">✨ ' + success + '개 새 회차 추가 완료! (~ ' + (currentRound - 1) + '회) 자동 저장됨 💾</span>';
+    } else {
+        status.innerHTML = '<span style="color:var(--dim)">이미 최신 상태예요! (마지막: ' + lastRound + '회)</span>';
+    }
+}
+
+// =============================================
+// localStorage 저장/불러오기
+// =============================================
+function saveData() {
+    try {
+        localStorage.setItem('lotto_winData', JSON.stringify(winData));
+    } catch(e) { console.log('저장 실패:', e); }
+}
+
+function loadData() {
+    try {
+        let saved = localStorage.getItem('lotto_winData');
+        if (saved) {
+            let parsed = JSON.parse(saved);
+            if (parsed && parsed.length > 0) {
+                winData = parsed;
+            }
+        }
+    } catch(e) { console.log('불러오기 실패:', e); }
+}
+
+function exportData() {
+    let json = JSON.stringify(winData, null, 2);
+    let blob = new Blob([json], {type: 'application/json'});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url; a.download = 'lotto_data.json'; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importData() {
+    let input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = function(e) {
+        let file = e.target.files[0];
+        let reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                winData = JSON.parse(ev.target.result);
+                winData.sort((a,b) => a.round - b.round);
+                saveData();
+                renderDataTable();
+                alert('데이터 불러오기 완료! (' + winData.length + '개 회차)');
+            } catch(e) { alert('파일 형식 오류!'); }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// =============================================
+// 탭 전환
+// =============================================
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+        t.classList.toggle('active', ['search','predict','data'][i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+// 초기화
+loadData();
+renderDataTable();
+</script>
+</body>
+</html>
