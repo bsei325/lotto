@@ -148,6 +148,7 @@ setTimeout(()=>{document.getElementById('pwInput').style.borderColor='#f5c2d4';}
 </div></div>
 <div style="margin-bottom:8px">
 <button class="btn-p" id="btnGo" onclick="doSearch()" style="padding:10px 28px;font-size:1rem">🔍 검색 시작</button>
+<button class="btn-o" id="btnCont" onclick="doSearch(true)" style="padding:10px 28px;font-size:1rem">▶ 이어서찾기</button>
 <button class="btn-d hidden" id="btnStop" onclick="stopS()" style="padding:10px 28px;font-size:1rem">⏹ 중단</button>
 </div>
 <div class="pbar-wrap"><div class="pbar" id="pb"></div><div class="pbar-text" id="pt">대기중</div></div>
@@ -213,15 +214,8 @@ setTimeout(()=>{document.getElementById('pwInput').style.borderColor='#f5c2d4';}
 <!-- 하단: 추천수 요약 -->
 <div class="panel">
 <div class="ptitle">📊 결과 요약</div>
-<div style="margin-bottom:12px">
-<label>♡ 추천수 개수</label>
-<div class="row" style="gap:5px;margin-top:3px">
-<button class="pick" onclick="setRec(this,25)">25개</button>
-<button class="pick on" onclick="setRec(this,30)">30개</button>
-<button class="pick" onclick="setRec(this,35)">35개</button>
-<button class="pick" onclick="setRec(this,40)">40개</button>
-<button class="pick" onclick="setRec(this,45)">전체</button>
-</div>
+<div style="margin-bottom:12px;padding:10px 12px;background:#fff0f5;border:1px solid var(--border);border-radius:10px;color:var(--dim);font-size:.82rem">
+체크한 씨드 1개당 <b style="color:var(--accent)">예상수 2개</b>를 번호판에서 단순 제외해요. 겹치는 번호는 한 번만 제외돼요.
 </div>
 <div style="margin-bottom:14px">
 <div style="font-weight:700;color:var(--red);margin-bottom:6px">🚫 제외된 번호 <span id="excNumCount" style="font-weight:400;color:var(--dim);font-size:.82rem"></span></div>
@@ -232,6 +226,19 @@ setTimeout(()=>{document.getElementById('pwInput').style.borderColor='#f5c2d4';}
 <div id="safeNums" style="font-size:.9rem">-</div>
 </div>
 <div id="recResult" style="margin-top:14px"></div>
+</div>
+
+<!-- 씨드 조합 미리보기 -->
+<div class="panel">
+<div class="ptitle">🧩 씨드 조합 미리보기</div>
+<p style="color:var(--dim);font-size:.82rem;margin-bottom:10px">
+씨드 1개당 예상수 <b style="color:var(--accent)">2개</b>를 단순 제외하는 기준으로, 겹침이 적은 씨드를 위주로 추천해요.<br>
+<span style="font-size:.78rem">※ 남길 결과수 계산 없이, 번호판에서 빠질 번호만 단순하게 보여줘요.</span>
+</p>
+<div class="row" style="margin-bottom:12px">
+<div style="padding-top:4px"><button class="btn-p" onclick="findBest6()" style="padding:10px 24px">🧩 겹침 적은 씨드 추천</button></div>
+</div>
+<div id="best6Result"></div>
 </div>
 </div>
 
@@ -301,6 +308,7 @@ let W=[
 
 let foundSeeds=[];
 let searching=false;
+const EXCLUDE_PER_SEED = 2; // 제외수 탭: 씨드 1개당 번호판에서 단순 제외할 번호 개수
 
 // === 탭 전환 ===
 function stab(n){document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('on',['search','exclude','predict','data'][i]===n)});document.querySelectorAll('.tc').forEach(c=>c.classList.remove('on'));document.getElementById('t-'+n).classList.add('on');if(n==='exclude')buildSeedChecks()}
@@ -315,29 +323,40 @@ function testSeed(seed,fr,tr,cd,mr,amt){
 Math.seedrandom(seed);var a=[];for(var i=1;i<=45;i++)a.push(i);
 for(var i=0;i<fr-1;i++)shuffle(a);
 var tm=0;
-for(var c=0;c<cd.length;c++){shuffle(a);var ns=cd[c];for(var k=0;k<amt;k++){if(ns.has(a[k]))tm++}if(tm>mr)return -1}
+for(var r=fr;r<=tr;r++){
+shuffle(a);
+var nums=cd[r];
+if(!nums)continue;
+for(var k=0;k<amt;k++){if(nums.has(a[k]))tm++}
+if(tm>mr)return -1}
 return tm}
 
-function getCD(fr,tr){let d=[];for(let r=fr;r<=tr;r++){let w=W.find(x=>x.r===r);if(w)d.push(new Set([...w.n,w.b]))}return d}
+function getCD(fr,tr){let d={};for(let r=fr;r<=tr;r++){let w=W.find(x=>x.r===r);if(w)d[r]=new Set([...w.n,w.b])}return d}
 
 // === 검색 ===
 let searchParams = {fr:1204, tr:1224, amt:3};
 
-async function doSearch(){
+let lastCheckedSeed = 0;
+
+async function doSearch(isContinue){
 if(searching)return;
 let f=parseInt(document.getElementById('sFrom').value),t=parseInt(document.getElementById('sTo').value);
 let fr=parseInt(document.getElementById('rFrom').value),tr=parseInt(document.getElementById('rTo').value);
 let mr=parseInt(document.getElementById('sRed').value)||0,amt=parseInt(document.getElementById('sAmt').value)||3;
 searchParams = {fr, tr, amt};
 let cd=getCD(fr,tr);
-if(!cd.length){alert('당첨번호 데이터가 없어요!\n🌸 당첨번호 관리에서 추가하세요.');return}
-searching=true;foundSeeds=[];lastBuiltCount=0;checkedSeeds.clear();
-document.getElementById('btnGo').classList.add('hidden');document.getElementById('btnStop').classList.remove('hidden');
-document.getElementById('sList').innerHTML='';
+if(!Object.keys(cd).length){alert('당첨번호 데이터가 없어요!\n🌸 당첨번호 관리에서 추가하세요.');return}
+searching=true;
+if(!isContinue){foundSeeds=[];lastBuiltCount=0;checkedSeeds.clear();document.getElementById('sList').innerHTML=''}
+document.getElementById('btnGo').classList.add('hidden');document.getElementById('btnCont').classList.add('hidden');document.getElementById('btnStop').classList.remove('hidden');
+let prevFound=foundSeeds.length;
 let total=t-f+1,st=performance.now(),bs=500;
+lastCheckedSeed=f;
 for(let b=f;b<=t;b+=bs){
 if(!searching)break;let e=Math.min(b+bs-1,t);
 for(let s=b;s<=e;s++){
+if(!searching){lastCheckedSeed=s;break}
+lastCheckedSeed=s;
 let res=testSeed(s,fr,tr,cd,mr,amt);
 if(res>=0){foundSeeds.push({seed:s,reds:res});
 let c=document.createElement('span');c.className='chip';
@@ -346,9 +365,10 @@ if(res===0)c.style.borderColor='#e84393';
 let _s=s,_fr=fr,_tr=tr,_amt=amt;
 c.onclick=()=>{document.getElementById('pSeed').value=_s;document.getElementById('pAmt').value=_amt;document.getElementById('pRfr').value=_fr;document.getElementById('pRtr').value=_tr;stab('predict');doPredict()};
 document.getElementById('sList').appendChild(c)}}
-let tested=e-f+1,pct=tested/total*100,el=(performance.now()-st)/1000,sp=tested/el,eta=(total-tested)/sp;
+if(!searching)break;
+let tested=lastCheckedSeed-f+1,pct=tested/total*100,el=(performance.now()-st)/1000,sp=tested/el,eta=(total-tested)/sp;
 document.getElementById('pb').style.width=pct+'%';
-document.getElementById('pt').textContent=tested+'/'+total+' ('+pct.toFixed(1)+'%)';
+document.getElementById('pt').textContent=tested.toLocaleString()+'/'+total.toLocaleString()+' ('+pct.toFixed(1)+'%)';
 document.getElementById('xT').textContent=tested.toLocaleString();
 document.getElementById('xF').textContent=foundSeeds.length;
 document.getElementById('xS').textContent=Math.round(sp).toLocaleString();
@@ -356,8 +376,11 @@ document.getElementById('xE').textContent=eta<60?Math.round(eta)+'초':(eta/60).
 document.getElementById('fLabel').textContent='('+foundSeeds.length+'개)';
 await new Promise(r=>setTimeout(r,0))}
 searching=false;
-document.getElementById('btnGo').classList.remove('hidden');document.getElementById('btnStop').classList.add('hidden');
-document.getElementById('pt').textContent='완료! '+foundSeeds.length+'개 발견';document.getElementById('xE').textContent='완료';
+document.getElementById('sFrom').value=lastCheckedSeed+1;
+document.getElementById('btnGo').classList.remove('hidden');document.getElementById('btnCont').classList.remove('hidden');document.getElementById('btnStop').classList.add('hidden');
+let newFound=foundSeeds.length-prevFound;
+let wasComplete=(lastCheckedSeed>=t);
+document.getElementById('pt').textContent=(wasComplete?'완료!':'중단!')+' 이번 '+newFound+'개 / 총 '+foundSeeds.length+'개';document.getElementById('xE').textContent=wasComplete?'완료':'중단';
 if(foundSeeds.length>0){document.getElementById('recSeedPanel').style.display='block';pickSeeds(document.querySelector('#recSeedPanel .pick.on'),30)}}
 function stopS(){searching=false}
 
@@ -411,7 +434,7 @@ function buildSeedChecks() {
     if (foundSeeds.length === lastBuiltCount) { return; }
     lastBuiltCount = foundSeeds.length;
     let round = parseInt(document.getElementById('excRound').value) || 1225;
-    let amt = parseInt(document.getElementById('sAmt').value) || 3;
+    let amt = EXCLUDE_PER_SEED;
     let h = '';
     foundSeeds.forEach((fs, i) => {
         let pred = getPredForSeed(fs.seed, round, amt);
@@ -455,7 +478,7 @@ function initGrid() {
     grid.innerHTML = h;
     document.getElementById('remainCount').textContent = '45';
     document.getElementById('excNums').textContent = '-';
-    document.getElementById('safeNums').innerHTML = '<span style="color:var(--dim)">씨드를 선택하면 결과가 표시돼요</span>';
+    document.getElementById('safeNums').innerHTML = '<span style="color:var(--dim)">씨드를 선택하면 씨드당 2개씩 제외돼요</span>';
     document.getElementById('selCount').textContent = '';
 }
 
@@ -470,32 +493,29 @@ function setRec(el, n) {
 
 function updateGrid() {
     let round = parseInt(document.getElementById('excRound').value) || 1225;
-    let amt = parseInt(document.getElementById('sAmt').value) || 3;
-    let excluded = new Set();
+    let amt = EXCLUDE_PER_SEED;
     let checkedCount = checkedSeeds.size;
-    let freq = {};
-    for (let i = 1; i <= 45; i++) freq[i] = 0;
+
+    // 단순 제외 방식:
+    // 체크한 씨드 1개 = 해당 회차에서 앞 예상수 2개를 번호판에서 제외
+    let excludedSet = new Set();
+    let selectedInfo = [];
 
     foundSeeds.forEach(fs => {
         if (checkedSeeds.has(fs.seed)) {
-            let pred = getPredForSeed(fs.seed, round, amt);
-            pred.forEach(n => { excluded.add(n); freq[n]++; });
+            let nums = getPredForSeed(fs.seed, round, amt);
+            let before = excludedSet.size;
+            nums.forEach(n => excludedSet.add(n));
+            selectedInfo.push({ seed: fs.seed, nums: nums, gain: excludedSet.size - before });
         }
     });
 
-    // 빈도 기준으로 정렬: 많이 나올수록 제외 우선
-    let ranked = [];
-    for (let i = 1; i <= 45; i++) ranked.push({num: i, count: freq[i]});
-    ranked.sort((a, b) => a.count - b.count); // 적게 나온 순 = 추천 우선
-
-    let recNums = new Set(ranked.slice(0, recCount).map(x => x.num));
-
-    // 번호판 업데이트
     let remaining = [];
     let excludedList = [];
     for (let i = 1; i <= 45; i++) {
         let cell = document.getElementById('c' + i);
-        if (checkedCount > 0 && !recNums.has(i)) {
+        if (!cell) continue;
+        if (checkedCount > 0 && excludedSet.has(i)) {
             cell.className = 'cell off';
             excludedList.push(i);
         } else {
@@ -505,37 +525,40 @@ function updateGrid() {
     }
 
     document.getElementById('remainCount').textContent = remaining.length;
-    document.getElementById('selCount').textContent = '(' + checkedCount + '개 선택)';
+    document.getElementById('selCount').textContent = '(' + checkedCount + '개 선택 · 씨드당 2개 제외)';
 
-    // 행별 카운트
     let groups = [{id:'1',r:[1,9]},{id:'10',r:[10,19]},{id:'20',r:[20,29]},{id:'30',r:[30,39]},{id:'40',r:[40,45]}];
     groups.forEach(g => {
         let cnt = 0;
-        for (let i = g.r[0]; i <= g.r[1]; i++) { if (recNums.has(i) || checkedCount === 0) cnt++; }
+        for (let i = g.r[0]; i <= g.r[1]; i++) { if (!excludedSet.has(i) || checkedCount === 0) cnt++; }
         let el = document.getElementById('rc' + g.id);
         if (el) { el.textContent = cnt; el.style.color = cnt === 0 ? 'var(--dim)' : 'var(--accent)'; }
     });
 
-    // 결과 표시
-    if (checkedCount > 0 && excludedList.length > 0) {
-        document.getElementById('excNums').innerHTML = excludedList.map(n =>
-            '<span class="ball hot">' + String(n).padStart(2, '0') + '</span>').join('');
+    if (checkedCount > 0) {
+        document.getElementById('excNums').innerHTML = excludedList.length ? excludedList.map(n =>
+            '<span class="ball hot">' + String(n).padStart(2, '0') + '</span>').join('') : '-';
         document.getElementById('excNumCount').textContent = '(' + excludedList.length + '개)';
         document.getElementById('safeNums').innerHTML = remaining.map(n =>
             '<span class="ball cold">' + String(n).padStart(2, '0') + '</span>').join('');
         document.getElementById('safeNumCount').textContent = '(' + remaining.length + '개)';
 
-        // 추천수 상세
         let recH = '<div style="margin-top:6px;padding:12px;background:#f0fff4;border-radius:10px;border:1px solid #c6f6d5">';
-        recH += '<b style="color:var(--green)">💚 최종 추천 ' + remaining.length + '개 번호</b><br>';
+        recH += '<b style="color:var(--green)">💚 단순 제외 결과: 남은 번호 ' + remaining.length + '개</b><br>';
         recH += '<span style="font-family:JetBrains Mono,monospace;font-size:1.1rem;font-weight:700;color:#2d6a4f">';
         recH += remaining.map(n => String(n).padStart(2, '0')).join(', ');
-        recH += '</span></div>';
+        recH += '</span>';
+        recH += '<div style="margin-top:10px;font-size:.82rem;color:var(--dim)">체크한 씨드 ' + checkedCount + '개 × 2개 제외 후보 = 최대 ' + (checkedCount * amt) + '개 제외 / 실제 제외 ' + excludedList.length + '개</div>';
+        recH += '<table style="margin-top:8px;font-size:.78rem"><tr><th>씨드</th><th>제외 후보 2개</th><th>새로 빠진 수</th></tr>';
+        selectedInfo.forEach(s => {
+            recH += '<tr><td><b>' + s.seed + '</b></td><td>' + s.nums.map(n => String(n).padStart(2, '0')).join(', ') + '</td><td style="color:var(--red);font-weight:700">+' + s.gain + '</td></tr>';
+        });
+        recH += '</table></div>';
         document.getElementById('recResult').innerHTML = recH;
     } else {
         document.getElementById('excNums').textContent = '-';
         document.getElementById('excNumCount').textContent = '';
-        document.getElementById('safeNums').innerHTML = '<span style="color:var(--dim)">씨드를 선택하면 결과가 표시돼요</span>';
+        document.getElementById('safeNums').innerHTML = '<span style="color:var(--dim)">씨드를 선택하면 씨드당 2개씩 제외돼요</span>';
         document.getElementById('safeNumCount').textContent = '';
         document.getElementById('recResult').innerHTML = '';
     }
@@ -550,6 +573,239 @@ function selAll(val) {
     });
     updateGrid();
 }
+
+// === 최종 6개 추천 ===
+let targetRemain = 6;
+function setTarget(el, n) { targetRemain = n; el.parentElement.querySelectorAll('.pick').forEach(b => b.classList.remove('on')); el.classList.add('on'); }
+
+// === 씨드 조합 추천 헬퍼 ===
+function pad2(n) { return String(n).padStart(2, '0'); }
+function numsToMask(nums) {
+    let mask = 0n;
+    nums.forEach(n => { mask |= (1n << BigInt(n - 1)); });
+    return mask;
+}
+function maskToNums(mask) {
+    let nums = [];
+    for (let i = 1; i <= 45; i++) {
+        if (mask & (1n << BigInt(i - 1))) nums.push(i);
+    }
+    return nums;
+}
+function bitCount(mask) {
+    let c = 0;
+    while (mask > 0n) { c += Number(mask & 1n); mask >>= 1n; }
+    return c;
+}
+function getRemainingFromMask(excludedMask) {
+    let arr = [];
+    for (let i = 1; i <= 45; i++) {
+        if (!(excludedMask & (1n << BigInt(i - 1)))) arr.push(i);
+    }
+    return arr;
+}
+function buildSeedCandidates(round, amt) {
+    let map = new Map();
+    foundSeeds.forEach(fs => {
+        let nums = getPredForSeed(fs.seed, round, amt).slice().sort((a, b) => a - b);
+        let mask = numsToMask(nums);
+        let key = mask.toString();
+        let old = map.get(key);
+        if (!old || fs.reds < old.reds || (fs.reds === old.reds && fs.seed < old.seed)) {
+            map.set(key, { seed: fs.seed, reds: fs.reds || 0, nums: nums, mask: mask, used: false });
+        }
+    });
+    return Array.from(map.values()).filter(c => c.mask !== 0n);
+}
+function findGreedyCombo(candidates, targetExclude) {
+    let excluded = 0n;
+    let selected = [];
+    let used = new Set();
+    let currentCount = 0;
+
+    while (currentCount < targetExclude) {
+        let need = targetExclude - currentCount;
+        let best = null;
+        candidates.forEach((c, idx) => {
+            if (used.has(idx)) return;
+            let nextMask = excluded | c.mask;
+            let nextCount = bitCount(nextMask);
+            let gain = nextCount - currentCount;
+            if (gain <= 0 || nextCount > targetExclude) return;
+            let overlap = c.nums.length - gain;
+            let score = gain * 1000 - overlap * 20 - c.reds * 5;
+            if (gain === need) score += 5000; // 딱 맞게 채우는 씨드 우선
+            if (!best || score > best.score || (score === best.score && c.seed < best.c.seed)) {
+                best = { c, idx, gain, nextMask, nextCount, score };
+            }
+        });
+        if (!best) break;
+        used.add(best.idx);
+        excluded = best.nextMask;
+        currentCount = best.nextCount;
+        selected.push({ seed: best.c.seed, reds: best.c.reds, nums: best.c.nums, gain: best.gain, total: currentCount });
+    }
+    return { selected, excluded, excludedCount: currentCount, exact: currentCount === targetExclude };
+}
+function findBeamCombo(candidates, targetExclude) {
+    // greedy가 아슬아슬하게 못 맞출 때를 위한 가벼운 조합 탐색
+    let sorted = candidates.slice().sort((a, b) => (a.reds - b.reds) || (a.seed - b.seed));
+    let maxCandidates = Math.min(sorted.length, 260);
+    sorted = sorted.slice(0, maxCandidates);
+
+    let beam = [{ mask: 0n, picks: [], count: 0 }];
+    let best = beam[0];
+    let seen = new Set(['0']);
+    let maxSteps = Math.min(24, Math.max(4, Math.ceil(targetExclude / Math.max(1, parseInt(document.getElementById('sAmt').value) || 3)) + 8));
+    let beamSize = 420;
+
+    for (let step = 0; step < maxSteps; step++) {
+        let next = [];
+        for (let st of beam) {
+            for (let c of sorted) {
+                if (st.picks.some(p => p.seed === c.seed)) continue;
+                let nm = st.mask | c.mask;
+                let nc = bitCount(nm);
+                if (nc <= st.count || nc > targetExclude) continue;
+                let key = nm.toString();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                let ns = { mask: nm, count: nc, picks: st.picks.concat([{ seed: c.seed, reds: c.reds, nums: c.nums, gain: nc - st.count, total: nc }]) };
+                next.push(ns);
+                if (nc > best.count || (nc === best.count && ns.picks.length < best.picks.length)) best = ns;
+                if (nc === targetExclude) return { selected: ns.picks, excluded: ns.mask, excludedCount: nc, exact: true };
+            }
+        }
+        if (!next.length) break;
+        next.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.picks.length - b.picks.length;
+        });
+        beam = next.slice(0, beamSize);
+    }
+    return { selected: best.picks, excluded: best.mask, excludedCount: best.count, exact: best.count === targetExclude };
+}
+function applySeedComboToBoard(result, target) {
+    if (!document.getElementById('c1')) initGrid();
+    checkedSeeds.clear();
+    result.selected.forEach(s => checkedSeeds.add(s.seed));
+    document.querySelectorAll('#seedChecks input[type="checkbox"]').forEach(cb => {
+        let idx = parseInt(cb.dataset.idx);
+        cb.checked = !!foundSeeds[idx] && checkedSeeds.has(foundSeeds[idx].seed);
+    });
+
+    let excludedList = maskToNums(result.excluded);
+    let remaining = getRemainingFromMask(result.excluded);
+    for (let i = 1; i <= 45; i++) {
+        let cell = document.getElementById('c' + i);
+        if (!cell) continue;
+        cell.className = excludedList.includes(i) ? 'cell off' : 'cell on';
+    }
+
+    document.getElementById('remainCount').textContent = remaining.length;
+    document.getElementById('selCount').textContent = '(' + result.selected.length + '개 추천 선택)';
+    document.getElementById('excNums').innerHTML = excludedList.length ? excludedList.map(n => '<span class="ball hot">' + pad2(n) + '</span>').join('') : '-';
+    document.getElementById('excNumCount').textContent = '(' + excludedList.length + '개)';
+    document.getElementById('safeNums').innerHTML = remaining.map(n => '<span class="ball cold">' + pad2(n) + '</span>').join('');
+    document.getElementById('safeNumCount').textContent = '(' + remaining.length + '개)';
+
+    let groups = [{id:'1',r:[1,9]},{id:'10',r:[10,19]},{id:'20',r:[20,29]},{id:'30',r:[30,39]},{id:'40',r:[40,45]}];
+    groups.forEach(g => {
+        let cnt = 0;
+        for (let i = g.r[0]; i <= g.r[1]; i++) if (remaining.includes(i)) cnt++;
+        let el = document.getElementById('rc' + g.id);
+        if (el) { el.textContent = cnt; el.style.color = cnt === 0 ? 'var(--dim)' : 'var(--accent)'; }
+    });
+
+    let recH = '<div style="margin-top:6px;padding:12px;background:#f0fff4;border-radius:10px;border:1px solid #c6f6d5">';
+    recH += '<b style="color:var(--green)">💚 조합 적용 결과: 남은 번호 ' + remaining.length + '개</b><br>';
+    recH += '<span style="font-family:JetBrains Mono,monospace;font-size:1.1rem;font-weight:700;color:#2d6a4f">' + remaining.map(pad2).join(', ') + '</span>';
+    recH += '</div>';
+    document.getElementById('recResult').innerHTML = recH;
+}
+function renderComboResult(result, round, amt, target) {
+    let remaining = getRemainingFromMask(result.excluded);
+    let excludedList = maskToNums(result.excluded);
+    let h = '';
+
+    h += '<div style="padding:16px;background:linear-gradient(135deg,#f0fff4,#e8f5e9);border-radius:14px;border:2px solid #a5d6a7;margin-bottom:12px">';
+    h += '<div style="text-align:center;font-size:1.4rem;margin-bottom:4px">🧩</div>';
+    h += '<div style="text-align:center;font-weight:900;font-size:1.12rem;color:var(--green);margin-bottom:8px">단순 제외 추천 씨드 ' + result.selected.length + '개</div>';
+    h += '<div class="stats" style="margin-bottom:10px">';
+    h += '<div class="stat"><b>' + excludedList.length + '</b><span>제외된 번호</span></div>';
+    h += '<div class="stat"><b style="color:var(--green)">' + remaining.length + '</b><span>남은 번호</span></div>';
+    h += '<div class="stat"><b>' + round + '</b><span>대상 회차</span></div>';
+    h += '<div class="stat"><b>' + amt + '</b><span>씨드당 제외</span></div>';
+    h += '</div>';
+    h += '<div style="font-size:.82rem;color:var(--dim);margin-bottom:10px;text-align:center">남길 결과수 계산 없이, 씨드 1개당 2개씩 번호판에서 단순 제외하는 기준이에요.</div>';
+    h += '<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ 번호판에 남은 번호</div>';
+    h += '<div style="margin-bottom:12px">' + remaining.map(n => '<span class="ball cold">' + pad2(n) + '</span>').join('') + '</div>';
+    h += '<div style="font-weight:700;color:var(--accent);margin-bottom:6px">💎 추천 발견 씨드</div>';
+    h += '<div class="seeds" style="max-height:180px;border:1px solid #c6f6d5;border-radius:12px;background:#fff;padding:8px">';
+    result.selected.forEach(s => {
+        h += '<span class="chip" title="제외 후보: ' + s.nums.map(pad2).join(', ') + '">' + s.seed + ' <small style="color:var(--dim)">+' + s.gain + '</small></span>';
+    });
+    h += '</div></div>';
+
+    h += '<div style="padding:14px;background:#fff;border-radius:14px;border:2px solid var(--border);margin-bottom:12px">';
+    h += '<div style="font-weight:900;color:var(--accent);margin-bottom:8px">📉 씨드별 단순 제외 과정</div>';
+    h += '<table style="font-size:.82rem"><tr><th>순서</th><th>씨드</th><th>제외 후보 2개</th><th>새로 빠진 수</th><th>남은수</th></tr>';
+    result.selected.forEach((s, i) => {
+        h += '<tr><td>' + (i + 1) + '</td><td><b>' + s.seed + '</b></td>';
+        h += '<td>' + s.nums.map(pad2).join(', ') + '</td>';
+        h += '<td style="color:var(--red);font-weight:700">+' + s.gain + '</td>';
+        h += '<td style="color:var(--green);font-weight:700">' + (45 - s.total) + '</td></tr>';
+    });
+    h += '</table></div>';
+
+    h += '<div style="padding:14px;background:#fff0f5;border-radius:14px;border:2px solid var(--border)">';
+    h += '<div style="font-weight:900;color:var(--red);margin-bottom:8px">🚫 조합으로 제외된 번호 ' + excludedList.length + '개</div>';
+    h += excludedList.map(n => '<span class="ball hot">' + pad2(n) + '</span>').join('');
+    h += '</div>';
+
+    document.getElementById('best6Result').innerHTML = h;
+}
+
+
+function findBest6() {
+    if (!foundSeeds.length) { alert('먼저 씨드를 검색해주세요!'); return; }
+    let round = parseInt(document.getElementById('excRound').value) || 1225;
+    let amt = EXCLUDE_PER_SEED;
+
+    buildSeedChecks();
+
+    // 남길 개수 계산 없이, 겹치는 번호가 적게 나오도록 씨드를 앞에서부터 추천
+    let candidates = buildSeedCandidates(round, amt);
+    if (!candidates.length) { alert('추천할 씨드 후보가 없어요!'); return; }
+
+    let excluded = 0n;
+    let selected = [];
+    let used = new Set();
+    let maxPick = Math.min(20, candidates.length);
+
+    while (selected.length < maxPick) {
+        let best = null;
+        candidates.forEach((c, idx) => {
+            if (used.has(idx)) return;
+            let nextMask = excluded | c.mask;
+            let gain = bitCount(nextMask) - bitCount(excluded);
+            if (gain <= 0) return;
+            let score = gain * 1000 - (c.reds || 0) * 5;
+            if (!best || score > best.score || (score === best.score && c.seed < best.c.seed)) {
+                best = { c, idx, gain, nextMask, score };
+            }
+        });
+        if (!best) break;
+        used.add(best.idx);
+        excluded = best.nextMask;
+        selected.push({ seed: best.c.seed, reds: best.c.reds, nums: best.c.nums, gain: best.gain, total: bitCount(excluded) });
+    }
+
+    let result = { selected: selected, excluded: excluded, excludedCount: bitCount(excluded), exact: false };
+    applySeedComboToBoard(result, 0);
+    renderComboResult(result, round, amt, 0);
+}
+
 
 // === 예상수 확인 ===
 function doPredict(){
