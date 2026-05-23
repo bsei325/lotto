@@ -194,6 +194,7 @@ tr:hover td{background:rgba(232,67,147,.04)}
 <div class="row">
 <div><label>씨드값</label><input type="number" id="pSeed" value="3206"></div>
 <div><label>예상수 개수</label><input type="number" id="pAmt" value="3" min="1" max="45"></div>
+<div><label>비교 회차</label><input type="number" id="pRfr" value="1204" style="width:90px"> ~ <input type="number" id="pRtr" value="1224" style="width:90px"></div>
 <div><label>미래 회차 수</label><input type="number" id="pFut" value="10" min="1" max="50"></div>
 <div style="padding-top:18px"><button class="btn-o" onclick="doPredict()">▶ 실행</button></div>
 </div>
@@ -272,11 +273,14 @@ return tm}
 function getCD(fr,tr){let d=[];for(let r=fr;r<=tr;r++){let w=W.find(x=>x.r===r);if(w)d.push(new Set([...w.n,w.b]))}return d}
 
 // === 검색 ===
+let searchParams = {fr:1204, tr:1224, amt:3};
+
 async function doSearch(){
 if(searching)return;
 let f=parseInt(document.getElementById('sFrom').value),t=parseInt(document.getElementById('sTo').value);
 let fr=parseInt(document.getElementById('rFrom').value),tr=parseInt(document.getElementById('rTo').value);
 let mr=parseInt(document.getElementById('sRed').value)||0,amt=parseInt(document.getElementById('sAmt').value)||3;
+searchParams = {fr, tr, amt};
 let cd=getCD(fr,tr);
 if(!cd.length){alert('당첨번호 데이터가 없어요!\n🌸 당첨번호 관리에서 추가하세요.');return}
 searching=true;foundSeeds=[];lastBuiltCount=0;checkedSeeds.clear();
@@ -291,7 +295,8 @@ if(res>=0){foundSeeds.push({seed:s,reds:res});
 let c=document.createElement('span');c.className='chip';
 c.textContent=s+(res>0?' ('+res+'개)':'');
 if(res===0)c.style.borderColor='#e84393';
-c.onclick=()=>{document.getElementById('pSeed').value=s;document.getElementById('pAmt').value=amt;stab('predict');doPredict()};
+let _s=s,_fr=fr,_tr=tr,_amt=amt;
+c.onclick=()=>{document.getElementById('pSeed').value=_s;document.getElementById('pAmt').value=_amt;document.getElementById('pRfr').value=_fr;document.getElementById('pRtr').value=_tr;stab('predict');doPredict()};
 document.getElementById('sList').appendChild(c)}}
 let tested=e-f+1,pct=tested/total*100,el=(performance.now()-st)/1000,sp=tested/el,eta=(total-tested)/sp;
 document.getElementById('pb').style.width=pct+'%';
@@ -437,7 +442,7 @@ function selAll(val) {
 // === 예상수 확인 ===
 function doPredict(){
 let seed=parseInt(document.getElementById('pSeed').value),amt=parseInt(document.getElementById('pAmt').value),fut=parseInt(document.getElementById('pFut').value);
-let fr=parseInt(document.getElementById('rFrom').value),tr=parseInt(document.getElementById('rTo').value);
+let fr=parseInt(document.getElementById('pRfr').value),tr=parseInt(document.getElementById('pRtr').value);
 Math.seedrandom(seed);var g=[];for(var i=1;i<=45;i++)g.push(i);
 let mx=Math.max(tr,W[W.length-1].r),ms=[];
 for(var i=0;i<mx+1+fut;i++){var t=shuffle(g).slice();ms.push(t)}
